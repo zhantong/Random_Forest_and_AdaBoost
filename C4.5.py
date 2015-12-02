@@ -250,6 +250,7 @@ class Ten_fold_cross_validation():
 		}
 		self.data['rows'],self.data['colomns'],self.data['labels']=self.read_from_file(file_path)
 		self.ten_rand=self.generate_ten_random()
+		Node.data=self.data
 		pass
 	def read_from_file(self,file_path): 
 		rows=[]
@@ -311,8 +312,43 @@ class Ten_fold_cross_validation():
 			if label!=real_label:
 				count+=1
 		print(count)
+	def do_random_forest(self):
+		ten=10
+		for i in range(ten):
+			rf=Random_forest(self.data,self.ten_rand[i][0])
+			rf.build_forest()
+			count=0
+			for index in self.ten_rand[i][1]:
+				label=rf.validate(Node.data['rows'][index])
+				if label!=Node.data['labels'][index]:
+					count+=1
+			print(count,'/',len(self.ten_rand[i][1]))
+class Random_forest():
+	def __init__(self,data,locations):
+		self.tree_num=30
+		self.data=data
+		self.feature_num=len(data['colomns'])
+		self.feature_rand_num=round(math.log2(self.feature_num))+1
+		self.locations=locations
+		self.locations_num=len(self.locations)
+		self.trees=[]
+	def build_forest(self):
+		for i in range(self.tree_num):
+			locations=[random.choice(self.locations) for x in range(self.locations_num)]
+			features_usable=random.sample(range(self.feature_num),self.feature_rand_num)
+			root=Node(locations,None,features_usable,0)
+			root.do()
+			self.trees.append(root)
+	def validate(self,sample):
+		result=[]
+		for i in range(self.tree_num):
+			label=self.trees[i].get(sample)
+			result.append(label)
+		return max(map(lambda x: (result.count(x), x), result))[1]
+
+
 if __name__=='__main__':
 	#c=C_4_point_5('data/breast-cancer-assignment5.txt')
 	#c.do()
-	t=Ten_fold_cross_validation('data/german-assignment5.txt')
-	t.test()
+	t=Ten_fold_cross_validation('data/breast-cancer-assignment5.txt')
+	t.do_random_forest()
