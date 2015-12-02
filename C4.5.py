@@ -346,7 +346,44 @@ class Random_forest():
 			result.append(label)
 		return max(map(lambda x: (result.count(x), x), result))[1]
 
+class Adaboost():
+	def __init__(self,data,locations):
+		self.T=100
+		self.data=data
+		self.locations=locations
+		self.locations_num=len(self.locations)
+		self.update=[]
+		
+	def do(self):
+		t=0
+		weight=[1/self.locations_num]*self.locations_num
+		locations=self.locations
 
+		features_usable=[x for x in range(len(self.data['colomns']))]
+		while t<self.T:
+			root=Node(locations,None,features_usable,0)
+			root.do()
+			validate=[]
+			for index in locations:
+				label=root.get(Node.data['rows'][index])
+				if label==Node.data['labels'][index]:
+					validate.append(True)
+				else:
+					validate.append(False)
+			error_num=validate.count(False)
+			update=math.log(validate.count(True)/error_num)/2
+			self.update.append(update)
+			for index,is_true in zip(locations,validate):
+				if is_true:
+					weight[index]*=math.exp(-update)
+				else:
+					weight[index]*=math.exp(update)
+			sum_weight=sum(weight)
+			weight=[w/sum_weight for w in weight]
+			t+=1
+			if error_num==0:
+				break
+	
 if __name__=='__main__':
 	#c=C_4_point_5('data/breast-cancer-assignment5.txt')
 	#c.do()
