@@ -1,4 +1,5 @@
 import math
+import random
 class Node():
 	
 	def __init__(self,locations,parent,features_usable,depth):
@@ -20,9 +21,9 @@ class Node():
 			self.is_leaf=True
 			self.label=self.parent.dominate_label()
 			#print('leaf: locations=0',self.depth,self.locations)
-		elif len(set([Node.data['labels']['data'][index] for index in self.locations]))==1:
+		elif len(set([Node.data['labels'][index] for index in self.locations]))==1:
 			self.is_leaf=True
-			self.label=Node.data['labels']['data'][self.locations[0]]
+			self.label=Node.data['labels'][self.locations[0]]
 			#print('leaf: belong to 1 label',self.depth,self.label)
 		elif (not self.features_usable) or self.all_same():
 			self.is_leaf=True
@@ -35,7 +36,7 @@ class Node():
 					return False
 		return True
 	def dominate_label(self):
-		lists=[Node.data['labels']['data'][index] for index in self.locations]
+		lists=[Node.data['labels'][index] for index in self.locations]
 		s=list(set(lists))
 		m=-1
 		index=-1
@@ -52,7 +53,7 @@ class Node():
 		#max_index,max_count=max(enumerate([lists.count(x) for x in s]),key=lambda p:p[1])
 		#return s[max_index]
 	def test(self):
-		print(self.depth,self.locations,[Node.data['labels']['data'][index] for index in self.locations])
+		print(self.depth,self.locations,[Node.data['labels'][index] for index in self.locations])
 		if self.is_leaf:
 			print('leaf',self.label)
 			return
@@ -60,17 +61,17 @@ class Node():
 			child.test()
 	def info_gain_ratio(self):
 		result=[]
-		label_entropy=entropy(Node.data['labels']['data'],self.locations)
+		label_entropy=entropy(Node.data['labels'],self.locations)
 		info_gains=[]
 		split_infos=[]
 		for feature_index in self.features_usable:
 			if Node.data['colomns'][feature_index]['is_discrete']:
 				colomn=Node.data['colomns'][feature_index]['data']
-				info_e=info_entropy(colomn,Node.data['labels']['data'],self.locations)
+				info_e=info_entropy(colomn,Node.data['labels'],self.locations)
 				info_gain=label_entropy-info_e
 				split_info=entropy(colomn,self.locations)
 			else:
-				info_gain,split_info=numeric_info_entropy(label_entropy,Node.data['colomns'][feature_index],Node.data['labels']['data'],self.locations)
+				info_gain,split_info=numeric_info_entropy(label_entropy,Node.data['colomns'][feature_index],Node.data['labels'],self.locations)
 			info_gains.append(info_gain)
 			split_infos.append(split_info)
 			#print(info_e,info_gains)
@@ -204,10 +205,7 @@ class C_4_point_5():
 	def read_from_file(self,file_path):
 		rows=[]
 		colomns=[]
-		labels={
-		'data':[],
-		'set':None
-		}
+		labels=[]
 		with open(file_path,'r') as f:
 			for is_discrete in f.readline().strip().split(','):
 				colomns.append({
@@ -226,24 +224,95 @@ class C_4_point_5():
 						colomn['data'].append(t)
 						row.append(t)
 				rows.append(row)
-				labels['data'].append(int(float(line.rsplit(',',1)[-1].strip())))
+				labels.append(int(float(line.rsplit(',',1)[-1].strip())))
 		for colomn in colomns:
 			if colomn['is_discrete']:
 				colomn['set']=set(colomn['data'])
-		labels['set']=set(labels['data'])
 		return rows,colomns,labels
 	def do(self):
 		Node.data=self.data
-		root=Node([x for x in range(len(self.data['labels']['data']))],None,[x for x in range(len(self.data['colomns']))],0)
+		root=Node([x for x in range(len(self.data['labels']))],None,[x for x in range(len(self.data['colomns']))],0)
 		root.do()
 		#root.test()
 		#print(root.get([4,1,3,0,1,0,1,4,1]))
 		count=0
-		for line,real_label in  zip(Node.data['rows'],Node.data['labels']['data']):
+		for line,real_label in  zip(Node.data['rows'],Node.data['labels']):
+			label=root.get(line)
+			if label!=real_label:
+				count+=1
+		print(count)
+class Ten_fold_cross_validation():
+	def __init__(self,file_path):
+		self.data={
+		'rows':None,
+		'colomns':None,
+		'labels':None,
+		}
+		self.data['rows'],self.data['colomns'],self.data['labels']=self.read_from_file(file_path)
+		self.ten_rand=self.generate_ten_random()
+		pass
+	def read_from_file(self,file_path): 
+		rows=[]
+		colomns=[]
+		labels=[]
+		with open(file_path,'r') as f:
+			for is_discrete in f.readline().strip().split(','):
+				colomns.append({
+					'is_discrete':is_discrete=='1',
+					'data':[]
+					})
+			for line in f:
+				row=[]
+				for colomn,d in zip(colomns,line.strip().split(',')[:-1]):
+					if colomn['is_discrete']:
+						t=int(float(d))
+						colomn['data'].append(t)
+						row.append(t)
+					else:
+						t=float(d)
+						colomn['data'].append(t)
+						row.append(t)
+				rows.append(row)
+				labels.append(int(float(line.rsplit(',',1)[-1].strip())))
+		for colomn in colomns:
+			if colomn['is_discrete']:
+				colomn['set']=set(colomn['data'])
+		return rows,colomns,labels
+	def generate_ten_random(self):
+		ten=10
+		length=len(self.data['labels'])
+		rand_list=random.sample(range(length),length)
+		ten_rand=[]
+		step=int(length/ten)
+		for i in range(0,length,step):
+			ten_rand.append((rand_list[0:i]+rand_list[i+step:],rand_list[i:i+step]))
+		return ten_rand
+	def test(self):
+		ten=10
+		Node.data=self.data
+		for i in range(ten):
+			root=Node(self.ten_rand[i][0],None,[x for x in range(len(self.data['colomns']))],0)
+			root.do()
+			count=0
+			for index in self.ten_rand[i][1]:
+				label=root.get(Node.data['rows'][index])
+				if label!=Node.data['labels'][index]:
+					count+=1
+			print(count,'/',len(self.ten_rand[i][1]))
+	def do(self):
+		Node.data=self.data
+		root=Node([x for x in range(len(self.data['labels']))],None,[x for x in range(len(self.data['colomns']))],0)
+		root.do()
+		#root.test()
+		#print(root.get([4,1,3,0,1,0,1,4,1]))
+		count=0
+		for line,real_label in  zip(Node.data['rows'],Node.data['labels']):
 			label=root.get(line)
 			if label!=real_label:
 				count+=1
 		print(count)
 if __name__=='__main__':
-	c=C_4_point_5('data/german-assignment5.txt')
-	c.do()
+	#c=C_4_point_5('data/breast-cancer-assignment5.txt')
+	#c.do()
+	t=Ten_fold_cross_validation('data/german-assignment5.txt')
+	t.test()
