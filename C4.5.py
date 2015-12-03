@@ -12,6 +12,7 @@ class Node():
 		self.depth=depth
 		self.label=None
 		self.locations=locations
+		self.prun=0
 		#print('featurs usable:',features_usable)
 		#print(self.locations)
 		#print([Node.data['rows'][index] for index in self.locations])
@@ -19,7 +20,7 @@ class Node():
 		#print([Node.data['labels']['data'][index] for index in [55,79]])
 		if len(locations)==0:
 			self.is_leaf=True
-			self.label=self.parent.dominate_label()
+			self.label=self.parent.dominate_label()[0]
 			#print('leaf: locations=0',self.depth,self.locations)
 		elif len(set([Node.data['labels'][index] for index in self.locations]))==1:
 			self.is_leaf=True
@@ -27,7 +28,7 @@ class Node():
 			#print('leaf: belong to 1 label',self.depth,self.label)
 		elif (not self.features_usable) or self.all_same():
 			self.is_leaf=True
-			self.label=self.dominate_label()
+			self.label=self.dominate_label()[0]
 			#print('leaf: no feature usable',self.depth,self.locations)
 	def all_same(self):
 		for index in self.locations[1:]:
@@ -46,7 +47,7 @@ class Node():
 				m=c
 				index=label
 		#print(index,m)
-		return index
+		return index,m
 
 		#print(s)
 		#print(max(enumerate([lists.count(x) for x in s]),key=lambda p:p[1]))
@@ -89,6 +90,7 @@ class Node():
 	def do(self):
 		
 		if self.is_leaf:
+			self.prun=len(self.locations)-[Node.data['labels'][index] for index in self.locations].count(self.label)+0.5
 			return
 		self.feature_index=self.index_max_info_gain_ratio()
 		features_usable=self.features_usable[:]
@@ -119,6 +121,7 @@ class Node():
 		for i in range(condition_num):
 			self.children[i]=Node(locations_list[i],self,features_usable,self.depth+1)
 			self.children[i].do()
+			self.prun+=self.children[i].prun
 	def get(self,sample):
 		#print(self.depth)
 		if self.is_leaf:
@@ -131,6 +134,25 @@ class Node():
 			else:
 				split_index=1
 		return self.children[split_index].get(sample)
+	def pruning(self):
+		if self.is_leaf:
+			return
+		sample_num=len(self.locations)
+		error_num=sample_num-self.dominate_label()[1]+0.5
+		leaf_num=self.prun
+		if leaf_num>sample_num:
+			self.is_leaf=True
+			self.label=self.dominate_label()[0]
+			self.children=None
+			return			
+		stand=math.sqrt(leaf_num*(1-leaf_num/sample_num))
+		if error_num<=leaf_num+stand:
+			self.is_leaf=True
+			self.label=self.dominate_label()[0]
+			self.children=None
+			return
+		for child in self.children:
+			child.pruning()
 def entropy(data,locations):
 	s=set([data[index] for index in locations])
 	if len(s)==1:
@@ -380,6 +402,7 @@ class Adaboost():
 			#print(sorted(locations))
 			root=Node(locations,None,features_usable,0)
 			root.do()
+			root.pruning()
 			self.trees.append(root)
 			validate=[]
 			for index in self.locations:
@@ -416,6 +439,7 @@ class Adaboost():
 			label=tree.get(sample)
 			result+=label*w
 			result/=len(self.trees)
+		#print(result)
 		if result<=self.label_middle:
 			return self.label_set[0]
 		else:
@@ -425,6 +449,6 @@ if __name__=='__main__':
 	#c=C_4_point_5('data/breast-cancer-assignment5.txt')
 	#c.do()
 	t=Ten_fold_cross_validation('data/german-assignment5.txt')
-	t.do_random_forest()
+	#t.do_random_forest()
 	print('-'*20)
-	#t.do_adaboost()
+	t.do_adaboost()
