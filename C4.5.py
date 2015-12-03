@@ -1,3 +1,22 @@
+"""C4.5决策树, Random Forest, AdaBoost Algorithm, 10 fold corss validation
+四个类全部共用一个总的数据结构，即
+data={
+	'colomns':{
+	'is_discrete':True/False,
+	'data':[colomn 1,colomn 2, ..., colomn m]
+	},
+	'rows':[row 1,row 2, ..., row n],
+	'labels':[label 1, label 2, ..., label n]
+}
+colomn x=[data x1, data x2, ..., data xn]
+row x=[data 1x, data 2x, ..., data mx]
+其中m为feature个数，n为sample个数
+其中data['rows']只用在对sample验证时
+
+在整个计算过程中，绝大多数为传递索引(index)，即指定哪些sample能用，哪些feature能用
+而尽量不构造新的数据，只传递索引
+"""
+
 import math
 import random
 
@@ -5,7 +24,9 @@ import random
 class Node():
 
     """决策树节点类
-    用来构建决策树
+    用来构建C4.5决策树
+    决策树能够处理连续型数据
+        具有剪枝功能
     """
 
     def __init__(self, locations, parent, features_usable, depth):
@@ -344,10 +365,12 @@ class Ten_fold_cross_validation():
         length = len(self.data['labels'])
         rand_list = random.sample(range(length), length)  # 将索引值打乱，即为随机
         ten_rand = []
-        step = int(length/ten)  # 10份数据，每份的个数
-        for i in range(0, length, step):  # 对每份数据，1份作为validation，9份作为training
-            ten_rand.append(
-                (rand_list[0:i]+rand_list[i+step:], rand_list[i:i+step]))
+        start=0
+        #这里为了保证每个valitaion集尽可能均衡，没有采用简单均值划分
+        for i in range(ten,0,-1):
+        	stop=start+int((length-start)/i)
+        	ten_rand.append((rand_list[0:start]+rand_list[stop:],rand_list[start:stop]))
+        	start=stop
         return ten_rand
 
     def test(self):
@@ -508,6 +531,7 @@ class Adaboost():
             rand = []
             for location, w in zip(self.locations, weight):  # 以weight重新采样
                 rand += [location]*int(w*ZOOM)
+            random.shuffle(rand)
             locations = random.sample(rand, self.locations_num)
             t += 1
 
