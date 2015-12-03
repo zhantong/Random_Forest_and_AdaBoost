@@ -30,17 +30,10 @@ class Node():
 		return True
 	def dominate_label(self):
 		lists=[Node.data['labels'][index] for index in self.locations]
-		s=list(set(lists))
-		m=-1
-		index=-1
-		for label in s:
-			c=lists.count(label)
-			if c>m:
-				m=c
-				index=label
+		m,index=max(map(lambda x: (lists.count(x), x), lists))
 		return index,m
 
-	def test(self):
+	def recursion_test(self):
 		print(self.depth,self.locations,[Node.data['labels'][index] for index in self.locations])
 		if self.is_leaf:
 			print('leaf',self.label)
@@ -69,11 +62,7 @@ class Node():
 	def index_max_info_gain_ratio(self):
 		lists=self.info_gain_ratio()
 		return self.features_usable[lists.index(max(lists))]
-	def split_to(self,sample_index):
-		value=Node.data['colomns'][self.feature_index]['data'][sample_index]
-		return self.split_condition.index(value)
 	def do(self):
-		
 		if self.is_leaf:
 			self.prun=len(self.locations)-[Node.data['labels'][index] for index in self.locations].count(self.label)+0.5
 			return
@@ -122,14 +111,8 @@ class Node():
 			return
 		sample_num=len(self.locations)
 		error_num=sample_num-self.dominate_label()[1]+0.5
-		leaf_num=self.prun
-		if leaf_num>sample_num:
-			self.is_leaf=True
-			self.label=self.dominate_label()[0]
-			self.children=None
-			return			
-		stand=math.sqrt(leaf_num*(1-leaf_num/sample_num))
-		if error_num<=leaf_num+stand:
+		leaf_num=self.prun		
+		if leaf_num>sample_num or error_num<=leaf_num+math.sqrt(leaf_num*(1-leaf_num/sample_num)):
 			self.is_leaf=True
 			self.label=self.dominate_label()[0]
 			self.children=None
@@ -255,16 +238,6 @@ class Ten_fold_cross_validation():
 				if label!=Node.data['labels'][index]:
 					count+=1
 			print(count,'/',len(self.ten_rand[i][1]))
-	def do(self):
-		Node.data=self.data
-		root=Node([x for x in range(len(self.data['labels']))],None,[x for x in range(len(self.data['colomns']))],0)
-		root.do()
-		count=0
-		for line,real_label in  zip(Node.data['rows'],Node.data['labels']):
-			label=root.get(line)
-			if label!=real_label:
-				count+=1
-		print(count)
 	def do_random_forest(self):
 		ten=10
 		for i in range(ten):
