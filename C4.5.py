@@ -1,12 +1,12 @@
 """C4.5决策树, Random Forest, AdaBoost Algorithm, 10 fold corss validation
 四个类全部共用一个总的数据结构，即
 data={
-	'colomns':{
-	'is_discrete':True/False,
-	'data':[colomn 1,colomn 2, ..., colomn m]
-	},
-	'rows':[row 1,row 2, ..., row n],
-	'labels':[label 1, label 2, ..., label n]
+    'colomns':{
+    'is_discrete':True/False,
+    'data':[colomn 1,colomn 2, ..., colomn m]
+    },
+    'rows':[row 1,row 2, ..., row n],
+    'labels':[label 1, label 2, ..., label n]
 }
 colomn x=[data x1, data x2, ..., data xn]
 row x=[data 1x, data 2x, ..., data mx]
@@ -95,8 +95,11 @@ class Node():
     def info_gain_ratio(self):
         """计算所有可用feature的info gain ratio
         返回值为所有可用featrue的info gain ratio值
-        用到avg_split_info是为了避免除法时分母为0的情况
-        即避免此节点下某一feature的值全部相同
+        在实际处理中可能碰到split info为0的情况，
+        这时直接除以split info会出现除0错误，
+        解决这个问题的办法是给分母作平滑处理，
+        即分母加上所有spilt info的平均值avg_split_info，
+        这样对分类不会有太大影响，也避免了除0错误。
         """
         result = []  # 存储所有可用featrue的info gain ratio值
         label_entropy = entropy(Node.data['labels'], self.locations)
@@ -197,7 +200,7 @@ class Node():
         而对决策没有好处，也应该被剪枝掉
         悲观剪枝的条件：
         此节点错误数<=所有子节点错误数之和+标准误差
-        注意这里对于每个叶子节点会有0.5的增加值，此节点错误数也会有0.5增加值		
+        注意这里对于每个叶子节点会有0.5的增加值，此节点错误数也会有0.5增加值       
         """
         if self.is_leaf:  # 不处理叶子节点
             return
@@ -296,6 +299,13 @@ def numeric_info_entropy(label_entropy, colomn, labels, locations):
     return m[0], m[1]  # 返回info gain, split info，与离散型对应
 
 
+def cal_mean_standard_deviation(data):
+    length = len(data)
+    mean = sum(data)/length
+    stad_dev = math.sqrt(sum([math.pow(d-mean, 2) for d in data])/length)
+    return mean, stad_dev
+
+
 class Ten_fold_cross_validation():
 
     """10 fold cross validation
@@ -365,12 +375,13 @@ class Ten_fold_cross_validation():
         length = len(self.data['labels'])
         rand_list = random.sample(range(length), length)  # 将索引值打乱，即为随机
         ten_rand = []
-        start=0
-        #这里为了保证每个valitaion集尽可能均衡，没有采用简单均值划分
-        for i in range(ten,0,-1):
-        	stop=start+int((length-start)/i)
-        	ten_rand.append((rand_list[0:start]+rand_list[stop:],rand_list[start:stop]))
-        	start=stop
+        start = 0
+        # 这里为了保证每个valitaion集尽可能均衡，没有采用简单均值划分
+        for i in range(ten, 0, -1):
+            stop = start+int((length-start)/i)
+            ten_rand.append(
+                (rand_list[0:start]+rand_list[stop:], rand_list[start:stop]))
+            start = stop
         return ten_rand
 
     def test(self):
@@ -393,6 +404,7 @@ class Ten_fold_cross_validation():
         """对random forest测试
         一共进行10次测试
         """
+        result = []
         ten = 10
         for i in range(ten):  # 每次测试相对独立
             # 实例化random forest，传递数据，和training集
@@ -402,14 +414,16 @@ class Ten_fold_cross_validation():
             for index in self.ten_rand[i][1]:  # 对validation集的sample逐个验证
                 # sample测试得到的label
                 label = rf.validate(Node.data['rows'][index])
-                if label != Node.data['labels'][index]:  # 与真实值比较
+                if label == Node.data['labels'][index]:  # 与真实值比较
                     count += 1
-            print(count, '/', len(self.ten_rand[i][1]))
+            result.append(count/len(self.ten_rand[i][1]))
+        return cal_mean_standard_deviation(result)
 
     def do_adaboost(self):
         """对AdaBoost测试
         一共进行10次测试
         """
+        result = []
         ten = 10
         for i in range(ten):  # 每次测试相对独立
             # 实例化adaBoost，传递数据，和training集
@@ -419,9 +433,10 @@ class Ten_fold_cross_validation():
             for index in self.ten_rand[i][1]:  # 对validation集的sample逐个验证
                 # sample测试得到的label
                 label = rf.validate(Node.data['rows'][index])
-                if label != Node.data['labels'][index]:  # 与真实值比较
+                if label == Node.data['labels'][index]:  # 与真实值比较
                     count += 1
-            print(count, '/', len(self.ten_rand[i][1]))
+            result.append(count/len(self.ten_rand[i][1]))
+        return cal_mean_standard_deviation(result)
 
 
 class Random_forest():
@@ -551,6 +566,6 @@ class Adaboost():
 
 if __name__ == '__main__':
     t = Ten_fold_cross_validation('data/german-assignment5.txt')
-    # t.do_random_forest()
+    print(t.do_random_forest())
     print('-'*20)
-    t.do_adaboost()
+    print(t.do_adaboost())
