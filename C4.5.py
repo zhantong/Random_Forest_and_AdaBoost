@@ -189,7 +189,7 @@ def numeric_info_entropy(label_entropy,colomn,labels,locations):
 		si=-d1*math.log2(d1)-(1-d1)*math.log2(1-d1)
 		igr=ig/si
 		igrs.append((ig,si,i-1,igr))
-	m=max(igrs,key=lambda x:x[3])
+	m=max(igrs,key=lambda x:x[0])
 	colomn['threshold']=data[m[2]]
 	return m[0],m[1]
 
@@ -323,6 +323,18 @@ class Ten_fold_cross_validation():
 				if label!=Node.data['labels'][index]:
 					count+=1
 			print(count,'/',len(self.ten_rand[i][1]))
+	def do_adaboost(self):
+		ten=10
+		for i in range(ten):
+			rf=Adaboost(self.data,self.ten_rand[i][0])
+			rf.do()
+			count=0
+			for index in self.ten_rand[i][1]:
+				label=rf.validate(Node.data['rows'][index])
+				#print('truth',Node.data['labels'][index])
+				if label!=Node.data['labels'][index]:
+					count+=1
+			print(count,'/',len(self.ten_rand[i][1]))
 class Random_forest():
 	def __init__(self,data,locations):
 		self.tree_num=30
@@ -348,44 +360,71 @@ class Random_forest():
 
 class Adaboost():
 	def __init__(self,data,locations):
-		self.T=100
+		self.T=10
 		self.data=data
 		self.locations=locations
 		self.locations_num=len(self.locations)
 		self.update=[]
-		
+		self.trees=[]
+		self.label_set=sorted(list(set(Node.data['labels'])))
+		self.label_middle=sum(self.label_set)/2
+		#print(self.label_set,self.label_middle)
 	def do(self):
 		t=0
+		ZOOM=self.locations_num*100
 		weight=[1/self.locations_num]*self.locations_num
 		locations=self.locations
 
 		features_usable=[x for x in range(len(self.data['colomns']))]
 		while t<self.T:
+			#print(sorted(locations))
 			root=Node(locations,None,features_usable,0)
 			root.do()
+			self.trees.append(root)
 			validate=[]
-			for index in locations:
+			for index in self.locations:
+			#for index in locations:
 				label=root.get(Node.data['rows'][index])
 				if label==Node.data['labels'][index]:
 					validate.append(True)
 				else:
 					validate.append(False)
 			error_num=validate.count(False)
+			if error_num==0:
+				break
 			update=math.log(validate.count(True)/error_num)/2
 			self.update.append(update)
-			for index,is_true in zip(locations,validate):
+			for location,is_true in zip(locations,validate):
+				index=self.locations.index(location)
 				if is_true:
 					weight[index]*=math.exp(-update)
 				else:
 					weight[index]*=math.exp(update)
 			sum_weight=sum(weight)
 			weight=[w/sum_weight for w in weight]
+			rand=[]
+			for location,w in zip(self.locations,weight):
+				rand+=[location]*int(w*ZOOM)
+			#locations=[random.choice(rand) for x in range(self.locations_num)]
+			locations=random.sample(rand,self.locations_num)
 			t+=1
-			if error_num==0:
-				break
-	
+#			if error_num==0:
+#				break
+	def validate(self,sample):
+		result=0
+		for tree,w in zip(self.trees,self.update):
+			label=tree.get(sample)
+			result+=label*w
+			result/=len(self.trees)
+		if result<=self.label_middle:
+			return self.label_set[0]
+		else:
+			return self.label_set[1]
+
 if __name__=='__main__':
 	#c=C_4_point_5('data/breast-cancer-assignment5.txt')
 	#c.do()
-	t=Ten_fold_cross_validation('data/breast-cancer-assignment5.txt')
+	t=Ten_fold_cross_validation('data/german-assignment5.txt')
 	t.do_random_forest()
+	print('-'*20)
+	#t.do_adaboost()
