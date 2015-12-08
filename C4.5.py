@@ -413,6 +413,7 @@ class Ten_fold_cross_validation():
         result = []
         ten = 10
         for i in range(ten):  # 每次测试相对独立
+            print('第', i, '次测试：', end='')
             # 实例化random forest，传递数据，和training集
             rf = Random_forest(self.data, self.ten_rand[i][0])
             rf.build_forest()  # 建立random forest
@@ -423,6 +424,7 @@ class Ten_fold_cross_validation():
                 if label == Node.data['labels'][index]:  # 与真实值比较
                     count += 1
             result.append(count/len(self.ten_rand[i][1]))
+            print('正确数:', count, '\t', '总数:', len(self.ten_rand[i][1]))
         return cal_mean_standard_deviation(result)
 
     def do_adaboost(self):
@@ -432,6 +434,7 @@ class Ten_fold_cross_validation():
         result = []
         ten = 10
         for i in range(ten):  # 每次测试相对独立
+            print('第', i, '次测试：', end='')
             # 实例化adaBoost，传递数据，和training集
             rf = Adaboost(self.data, self.ten_rand[i][0])
             rf.do()  # 运行AbaBoost算法
@@ -442,6 +445,7 @@ class Ten_fold_cross_validation():
                 if label == Node.data['labels'][index]:  # 与真实值比较
                     count += 1
             result.append(count/len(self.ten_rand[i][1]))
+            print('正确数:', count, '\t', '总数:', len(self.ten_rand[i][1]))
         return cal_mean_standard_deviation(result)
 
 
@@ -453,7 +457,7 @@ class Random_forest():
     def __init__(self, data, locations):
         """必要的变量声明和赋值
         """
-        self.tree_num = 30  # 设定森林中树的个数
+        self.tree_num = 100  # 设定森林中树的个数
         self.data = data
         self.feature_num = len(data['colomns'])  # feature的种数
         self.feature_rand_num = round(
@@ -468,6 +472,7 @@ class Random_forest():
         随机重复取sample，数目为locations_num
         随机取feature，数目为feature_rand_num
         """
+        print('正在建立森林，树总数：', self.tree_num)
         for i in range(self.tree_num):
             # 随机重复取sample
             locations = [random.choice(self.locations)
@@ -477,6 +482,7 @@ class Random_forest():
             root = Node(locations, None, features_usable, 0)  # 以上述取到的索引建立根节点
             root.do(is_random_forest=True)  # 建树，Random Forest不需要进行剪枝
             self.trees.append(root)  # 将此树根节点加入到森林
+        print('建立森林完毕')
 
     def validate(self, sample):
         """对sample测试其label
@@ -497,7 +503,7 @@ class Adaboost():
     def __init__(self, data, locations):
         """必要的变量声明和赋值
         """
-        self.T = 10  # 设定循环次数
+        self.T = 50  # 设定循环次数
         self.data = data
         self.locations = locations
         self.locations_num = len(self.locations)  # training数据个数
@@ -517,6 +523,7 @@ class Adaboost():
         python没有以概率采样，
         变通为概率较大者出现次数多，再进行随机采样
         """
+        print('正在进行循环建树，树总数为：', self.T)
         t = 0  # 标记第几次循环
         ZOOM = self.locations_num*100  # 对采样方法，提升精度
         weight = [1/self.locations_num]*self.locations_num  # 初始weight
@@ -555,6 +562,7 @@ class Adaboost():
             random.shuffle(rand)
             locations = random.sample(rand, self.locations_num)
             t += 1
+        print('建树完毕')
 
     def validate(self, sample):
         """对sample测试其label
@@ -570,8 +578,21 @@ class Adaboost():
         else:
             return self.label_set[1]
 
-if __name__ == '__main__':
-    t = Ten_fold_cross_validation('data/german-assignment5.txt')
-    print(t.do_random_forest())
+
+def start(file_path):
+    print(file_path)
+    t = Ten_fold_cross_validation(file_path)
+    print('Random Forest:')
+    mean, stad_dev = t.do_random_forest()
+    print('正确率平均值：', mean, '\t', '标准差：', stad_dev)
     print('-'*20)
-    print(t.do_adaboost())
+    print('AdaBoost:')
+    mean, stad_dev = t.do_adaboost()
+    print('正确率平均值：', mean, '\t', '标准差：', stad_dev)
+if __name__ == '__main__':
+    file_path = 'data/breast-cancer-assignment5.txt'
+    start(file_path)
+    print('-'*30)
+    print('-'*30)
+    file_path = 'data/german-assignment5.txt'
+    start(file_path)
