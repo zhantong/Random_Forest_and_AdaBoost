@@ -131,10 +131,12 @@ class Node():
         lists = self.info_gain_ratio()
         return self.features_usable[lists.index(max(lists))]
 
-    def do(self):
+    def do(self, is_random_forest=False):
         """递归建树
         由根节点触发，递归建立决策树
         如果为内部节点则根据info gain ratio分裂产生子树
+        random forest需要对每个内部节点都进行随机选取feature，
+        需要单独处理
         """
         if self.is_leaf:  # 如果为叶子节点，则递归完毕，返回时计算剪枝要用的参数
             self.prun = len(self.locations)-[Node.data['labels'][index]
@@ -144,6 +146,10 @@ class Node():
         features_usable = self.features_usable[:]
         # 传递给子节点的可用feature列表，将此节点用到的feature移除
         features_usable.remove(self.feature_index)
+        # 如果是random forest，则再次进行随机选取
+        if is_random_forest and len(features_usable):
+            features_usable = random.sample(
+                features_usable, round(math.log2(len(features_usable)))+1)
         feature = Node.data['colomns'][self.feature_index][
             'data']  # 此分裂feature的值,list
         # 如果此feature值为离散点
@@ -170,7 +176,7 @@ class Node():
             # 对子节点分类sample，可用的feature
             self.children[i] = Node(
                 locations_list[i], self, features_usable, self.depth+1)
-            self.children[i].do()  # 子节点执行递归
+            self.children[i].do(is_random_forest)  # 子节点执行递归
             self.prun += self.children[i].prun  # 子节点返回时更新剪枝所需参数
 
     def get(self, sample):
@@ -469,7 +475,7 @@ class Random_forest():
             features_usable = random.sample(
                 range(self.feature_num), self.feature_rand_num)  # 随机取feature
             root = Node(locations, None, features_usable, 0)  # 以上述取到的索引建立根节点
-            root.do()  # 建树，Random Forest不需要进行剪枝
+            root.do(is_random_forest=True)  # 建树，Random Forest不需要进行剪枝
             self.trees.append(root)  # 将此树根节点加入到森林
 
     def validate(self, sample):
