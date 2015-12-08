@@ -541,16 +541,18 @@ class Adaboost():
             root.do()
             root.pruning()  # 对决策树剪枝
             self.trees.append(root)  # 保存根节点
-            error_list=[]
-            validate=[]
-            for index,location in enumerate(self.locations):  # 每次建树后，以training集进行验证
+            error_list = []  # 保存错误的weight的index
+            validate = []  # 保存验证结果是否正确
+            # 每次建树后，以training集进行验证
+            for index, location in enumerate(self.locations):
                 label = root.get(Node.data['rows'][location])
                 if label != Node.data['labels'][location]:
                     error_list.append(index)
                     validate.append(False)
                 else:
                     validate.append(True)
-            error_rate=sum([weight[x] for x in error_list])
+            error_rate = sum([weight[x]
+                              for x in error_list])  # 这里error rate为加权错误率
             if error_rate == 0:  # 没出错则提前停止循环
                 break
             update = math.log((1-error_rate)/error_rate)/2  # update值
