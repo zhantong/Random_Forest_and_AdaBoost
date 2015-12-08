@@ -1,4 +1,4 @@
-"""C4.5决策树, Random Forest, AdaBoost Algorithm, 10 fold corss validation
+"""C4.5决策树, Random Forest, AdaBoost Algorithm, 10 fold cross validation
 四个类全部共用一个总的数据结构，即
 data={
     'colomns':{
@@ -15,6 +15,11 @@ row x=[data 1x, data 2x, ..., data mx]
 
 在整个计算过程中，绝大多数为传递索引(index)，即指定哪些sample能用，哪些feature能用
 而尽量不构造新的数据，只传递索引
+"""
+"""
+代码在Windows 10 x64
+Python 3.5 (x64)
+下测试通过
 """
 
 import math
@@ -200,7 +205,7 @@ class Node():
     def pruning(self):
         """剪枝
         采用悲观剪枝法
-        对每个内部节点，如果满足条件则将此节点设为叶子节点，label值为占大多数的label
+
         这里可能出现叶子节点错误总和数目比所有节点数目大的情况
         原因是节点分裂时出现了很多空节点，这种分裂只是增加了树的深度
         而对决策没有好处，也应该被剪枝掉
